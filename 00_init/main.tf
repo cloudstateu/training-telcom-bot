@@ -20,9 +20,27 @@ resource "azurerm_resource_group" "main" {
   location = "West Europe"
 }
 
-# ---------------
-# Storage Account
-# ---------------
+# ---------------------------
+# Cloud Shell Storage Account
+# ---------------------------
+
+resource "azurerm_storage_account" "shell" {
+  name                     = "sashell${var.student_name}"
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_storage_share" "share" {
+  name                 = "fsshell${var.student_name}"
+  storage_account_name = azurerm_storage_account.shell.name
+  quota                = 1024
+}
+
+# ---------------------
+# Media Storage Account
+# ---------------------
 
 resource "azurerm_storage_account" "main" {
   name                     = "sapggtelcomapp${var.student_name}"
@@ -42,14 +60,41 @@ resource "azurerm_storage_container" "txtfiles" {
   storage_account_name = azurerm_storage_account.main.name
 }
 
+resource "azurerm_storage_table" "config" {
+  name                 = "config"
+  storage_account_name = azurerm_storage_account.main.name
+}
+
+resource "azurerm_storage_table_entity" "incident_number" {
+  storage_account_name = azurerm_storage_account.main.name
+  table_name           = azurerm_storage_table.config.name
+
+  partition_key = "incident_number"
+  row_key       = "1"
+
+  entity = {
+    value              = 1
+    "value@odata.type" = "Edm.Int32"
+  }
+}
+
 # ---------
 # Logic App
 # ---------
+
+resource "azurerm_logic_app_integration_account" "main" {
+  name                = "ia-telcomapp"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  sku_name            = "Standard"
+}
 
 resource "azurerm_logic_app_workflow" "example" {
   name                = "logic-telcomapp"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
+
+  logic_app_integration_account_id = azurerm_logic_app_integration_account.main.id
 }
 
 # --------------

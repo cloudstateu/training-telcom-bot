@@ -1,0 +1,919 @@
+{
+  "Append_error_to_variable_-_var_error_message_(localization)": {
+    "inputs": {
+      "name": "var_error_message",
+      "value": "Nie dopasowano lokalizacji do numeru IVR z nazwy pliku. "
+    },
+    "runAfter": {
+      "Set_variable_-_var_status_(localization)": [ "Succeeded" ]
+    },
+    "type": "AppendToStringVariable"
+  },
+  "Create_SAS_URI_by_path_(V2)": {
+    "inputs": {
+      "body": {
+        "Permissions": "Read"
+      },
+      "host": {
+        "connection": {
+          "name": "@parameters('$connections')['azureblob']['connectionId']"
+        }
+      },
+      "method": "post",
+      "path": "/v2/datasets/@{encodeURIComponent('AccountNameFromSettings')}/CreateSharedLinkByPath",
+      "queries": {
+        "path": "@triggerBody()?['Path']"
+      }
+    },
+    "runAfter": {
+      "Create_SAS_URI_by_path_(V2)_2": [ "Succeeded" ]
+    },
+    "type": "ApiConnection"
+  },
+  "Create_SAS_URI_by_path_(V2)_2": {
+    "inputs": {
+      "body": {
+        "Permissions": "Read"
+      },
+      "host": {
+        "connection": {
+          "name": "@parameters('$connections')['azureblob']['connectionId']"
+        }
+      },
+      "method": "post",
+      "path": "/v2/datasets/@{encodeURIComponent('AccountNameFromSettings')}/CreateSharedLinkByPath",
+      "queries": {
+        "path": "@triggerBody()?['Path']"
+      }
+    },
+    "runAfter": {
+      "Parse_var_recipient_config": [ "Succeeded" ]
+    },
+    "type": "ApiConnection"
+  },
+  "Create_Transcription": {
+    "inputs": {
+      "body": {
+        "contentUrls": [ "@variables('var_audio_sas_url')" ],
+        "displayName": "Transcription of file using default model for pl-pl",
+        "locale": "pl-pl",
+        "properties": {
+          "diarizationEnabled": true,
+          "profanityFilterMode": "Masked",
+          "punctuationMode": "DictatedAndAutomatic",
+          "wordLevelTimestampsEnabled": true
+        }
+      },
+      "headers": {
+        "Ocp-Apim-Subscription-Key": "@variables('var_coginitive_key')"
+      },
+      "method": "POST",
+      "uri": "https://westeurope.api.cognitive.microsoft.com/speechtotext/v3.0/transcriptions"
+    },
+    "runAfter": {
+      "Set_variable_-_var_audio_sas_url": [ "Succeeded" ]
+    },
+    "type": "Http"
+  },
+  "Delay_execution": {
+    "inputs": {
+      "interval": {
+        "count": "@add(int(outputs('Generate_random_start_delay')['body']), 1)",
+        "unit": "Second"
+      }
+    },
+    "runAfter": {
+      "Generate_random_start_delay": [ "Succeeded" ]
+    },
+    "type": "Wait"
+  },
+  "For_each": {
+    "actions": {
+      "Condition": {
+        "actions": {
+          "Append_error_to_variable_-_var_error_message_(SMS)": {
+            "inputs": {
+              "name": "var_error_message",
+              "value": "Nie dopasowano odbiorcy SMS do numeru IVR z nazwy pliku. "
+            },
+            "runAfter": {
+              "Set_variable_-_var_status": [ "Succeeded" ]
+            },
+            "type": "AppendToStringVariable"
+          },
+          "Append_error_to_variable_-_var_error_message_(email)": {
+            "inputs": {
+              "name": "var_error_message",
+              "value": "Nie dopasowano odbiorcy e-mail do numer IVR z nazwy pliku. "
+            },
+            "runAfter": {
+              "Set_variable_-_var_status_": [ "Succeeded" ]
+            },
+            "type": "AppendToStringVariable"
+          },
+          "Assign_Transcription_Content_to_variable": {
+            "actions": {
+              "Append_transcription_text_to_var_trans_content": {
+                "inputs": {
+                  "name": "var_trans_content",
+                  "value": "@items('Assign_Transcription_Content_to_variable')['display']"
+                },
+                "runAfter": {},
+                "type": "AppendToStringVariable"
+              }
+            },
+            "foreach": "@body('Parse_JSON_Transcription_Content')?['combinedRecognizedPhrases']",
+            "runAfter": {
+              "Parse_JSON_Transcription_Content": [ "Succeeded" ]
+            },
+            "type": "Foreach"
+          },
+          "Create_blob_with_transcription_text": {
+            "inputs": {
+              "body": "@variables('var_trans_content')",
+              "headers": {
+                "ReadFileMetadataFromServer": true
+              },
+              "host": {
+                "connection": {
+                  "name": "@parameters('$connections')['azureblob']['connectionId']"
+                }
+              },
+              "method": "post",
+              "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent('AccountNameFromSettings'))}/files",
+              "queries": {
+                "folderPath": "/txtfiles",
+                "name": "@{triggerBody()?['Name']}@{utcNow()}.txt",
+                "queryParametersSingleEncoded": true
+              }
+            },
+            "runAfter": {
+              "Assign_Transcription_Content_to_variable": [ "Succeeded" ]
+            },
+            "runtimeConfiguration": {
+              "contentTransfer": {
+                "transferMode": "Chunked"
+              }
+            },
+            "type": "ApiConnection"
+          },
+          "Get_Transcription_Content": {
+            "inputs": {
+              "headers": {
+                "Ocp-Apim-Subscription-Key": "@variables('var_coginitive_key')"
+              },
+              "method": "GET",
+              "uri": "@items('For_each')?['links']?['contentUrl']"
+            },
+            "runAfter": {},
+            "type": "Http"
+          },
+          "Get_incident_details_from_transcription": {
+            "inputs": {
+              "code": "let text = workflowContext.actions.Parse_JSON_Transcription_Content.outputs.body.combinedRecognizedPhrases[0].display;\r\nlet result = null;\r\n\r\ntry {\r\n\r\nlet name = text.match(/Proszę podać imię i nazwisko osoby dokonującej zgłoszenia\\.(.*)\\. Proszę podać adres/m);\r\nlet location = text.match(/Proszę podać adres, którego zgłoszenie dotyczy\\.(.*)\\. Proszę/m);\r\nlet phone = text.match(/Proszę podać ([\\w]+) telefonu do kontaktu\\.(.*)\\. Podaj ([\\w]+) telefonu/m);\r\nlet incidentPhone = text.match(/Podaj ([\\w]+) telefonu, którego dotyczy zgłoszenie.(.*)\\. Podaj/m);\r\nlet description = text.match(/Podaj krótki opis uszkodzenia.(.*)/m);\r\n\r\nresult = {\r\n    name: name ? name[1] : null, \r\n    location: location ? location[1] : null, \r\n    phone: phone ? phone[2].replace(/[\\?\\.,\\- ]+/gm, '') : null,\r\n    incidentPhone: incidentPhone ? incidentPhone[2].replace(/[\\?\\.,\\- ]+/gm, '') : null,\r\n    description: description ? description[1] : null, \r\n};\r\n} catch (err) { }\r\n\r\nreturn result;"
+            },
+            "runAfter": {
+              "Get_the_number_of_phones_for_email_sending": [ "Succeeded" ]
+            },
+            "type": "JavaScriptCode"
+          },
+          "Get_the_number_of_phones_for_SMS_sending": {
+            "inputs": {
+              "code": "// filename format: <caller_phone_number>_<ivr_number>_<date>_<time>.wav\r\nconst filename = workflowContext.trigger.outputs.body.DisplayName;\r\nconst config = workflowContext.actions.Parse_var_recipient_config.outputs.body;\r\nconst ivrNumber = filename.substring(12, 23);\r\n\r\nconst results = config.filter(obj => obj.ivrNumber == ivrNumber).map(obj => obj.smsNumber);\r\n\r\nif (!results.length) {\r\n  throw new Error(`Nie dopasowano odbiorcy SMS do numeru ${ivrNumber}`);\r\n}\r\n\r\nreturn results;\r\n"
+            },
+            "runAfter": {
+              "Create_blob_with_transcription_text": [ "Succeeded" ]
+            },
+            "type": "JavaScriptCode"
+          },
+          "Get_the_number_of_phones_for_email_sending": {
+            "inputs": {
+              "code": "// filename format: <caller_phone_number>_<ivr_number>_<date>_<time>.wav\r\nconst filename = workflowContext.trigger.outputs.body.DisplayName;\r\nconst config = workflowContext.actions.Parse_var_recipient_config.outputs.body;\r\nconst ivrNumber = filename.substring(12, 23);\r\n\r\nconst results = config.filter(obj => obj.ivrNumber == ivrNumber).map(obj => obj.email);\r\n\r\nif (!results.length) {\r\n  throw new Error(`Nie dopasowano odbiorcy e-mail do numeru ${ivrNumber}`);\r\n}\r\n\r\nreturn results;\r\n"
+            },
+            "runAfter": {
+              "Create_blob_with_transcription_text": [ "Succeeded" ]
+            },
+            "type": "JavaScriptCode"
+          },
+          "Parse_JSON_Transcription_Content": {
+            "inputs": {
+              "content": "@body('Get_Transcription_Content')",
+              "schema": {
+                "properties": {
+                  "combinedRecognizedPhrases": {
+                    "items": {
+                      "properties": {
+                        "channel": {
+                          "type": "integer"
+                        },
+                        "display": {
+                          "type": "string"
+                        },
+                        "itn": {
+                          "type": "string"
+                        },
+                        "lexical": {
+                          "type": "string"
+                        },
+                        "maskedITN": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [ "channel", "lexical", "itn", "maskedITN", "display" ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "duration": {
+                    "type": "string"
+                  },
+                  "durationInTicks": {
+                    "type": "integer"
+                  },
+                  "recognizedPhrases": {
+                    "items": {
+                      "properties": {
+                        "channel": {
+                          "type": "integer"
+                        },
+                        "duration": {
+                          "type": "string"
+                        },
+                        "durationInTicks": {
+                          "type": "integer"
+                        },
+                        "nBest": {
+                          "items": {
+                            "properties": {
+                              "confidence": {
+                                "type": "number"
+                              },
+                              "display": {
+                                "type": "string"
+                              },
+                              "itn": {
+                                "type": "string"
+                              },
+                              "lexical": {
+                                "type": "string"
+                              },
+                              "maskedITN": {
+                                "type": "string"
+                              },
+                              "words": {
+                                "items": {
+                                  "properties": {
+                                    "confidence": {
+                                      "type": "number"
+                                    },
+                                    "duration": {
+                                      "type": "string"
+                                    },
+                                    "durationInTicks": {
+                                      "type": "integer"
+                                    },
+                                    "offset": {
+                                      "type": "string"
+                                    },
+                                    "offsetInTicks": {
+                                      "type": "integer"
+                                    },
+                                    "word": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "word",
+                                    "offset",
+                                    "duration",
+                                    "offsetInTicks",
+                                    "durationInTicks",
+                                    "confidence"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [ "confidence", "lexical", "itn", "maskedITN", "display", "words" ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "offset": {
+                          "type": "string"
+                        },
+                        "offsetInTicks": {
+                          "type": "integer"
+                        },
+                        "recognitionStatus": {
+                          "type": "string"
+                        },
+                        "speaker": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "recognitionStatus",
+                        "channel",
+                        "speaker",
+                        "offset",
+                        "duration",
+                        "offsetInTicks",
+                        "durationInTicks",
+                        "nBest"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "runAfter": {
+              "Get_Transcription_Content": [ "Succeeded" ]
+            },
+            "type": "ParseJson"
+          },
+          "Send_SMS_to_recipients": {
+            "actions": {},
+            "foreach": "@body('Get_the_number_of_phones_for_SMS_sending')",
+            "runAfter": {
+              "Get_the_number_of_phones_for_SMS_sending": [ "Succeeded" ]
+            },
+            "type": "Foreach"
+          },
+          "Send_email_to_recipients": {
+            "actions": {},
+            "foreach": "@body('Get_the_number_of_phones_for_email_sending')",
+            "runAfter": {
+              "Get_incident_details_from_transcription": [ "Succeeded" ]
+            },
+            "type": "Foreach"
+          },
+          "Set_variable_-_var_status": {
+            "inputs": {
+              "name": "var_status",
+              "value": "fail"
+            },
+            "runAfter": {
+              "Get_the_number_of_phones_for_SMS_sending": [ "Failed", "TimedOut" ]
+            },
+            "type": "SetVariable"
+          },
+          "Set_variable_-_var_status_": {
+            "inputs": {
+              "name": "var_status",
+              "value": "fail"
+            },
+            "runAfter": {
+              "Get_the_number_of_phones_for_email_sending": [ "Failed", "TimedOut" ]
+            },
+            "type": "SetVariable"
+          }
+        },
+        "expression": {
+          "and": [
+            {
+              "equals": [ "@items('For_each')?['kind']", "Transcription" ]
+            }
+          ]
+        },
+        "runAfter": {},
+        "type": "If"
+      }
+    },
+    "foreach": "@body('Parse_TranscriptionFiles')?['values']",
+    "runAfter": {
+      "Append_error_to_variable_-_var_error_message_(localization)": [ "Succeeded", "TimedOut", "Skipped", "Failed" ]
+    },
+    "runtimeConfiguration": {
+      "concurrency": {
+        "repetitions": 1
+      }
+    },
+    "type": "Foreach"
+  },
+  "Generate_random_start_delay": {
+    "inputs": {
+      "code": "return Math.round(Math.random() * 10);"
+    },
+    "runAfter": {},
+    "type": "JavaScriptCode"
+  },
+  "Get_TranscriptionFiles": {
+    "inputs": {
+      "headers": {
+        "Ocp-Apim-Subscription-Key": "@variables('var_coginitive_key')"
+      },
+      "method": "GET",
+      "uri": "@{body('Parse_JSON')?['self']}/files"
+    },
+    "runAfter": {
+      "Until": [ "Succeeded" ]
+    },
+    "type": "Http"
+  },
+  "Get_location_by_filename": {
+    "inputs": {
+      "code": "const filename = workflowContext.trigger.outputs.body.Name;\r\nconst config = workflowContext.actions.Parse_var_recipient_config.outputs.body;\r\nconst ivrNumber = filename.substring(12, 23);\r\n\r\nconst result = config.find(obj => obj.ivrNumber === ivrNumber);\r\n\r\nif (!result || !result.location) {\r\n  throw new Error(`Nie dopasowano lokalizacji do numeru ${ivrNumber}`);\r\n}\r\n\r\nreturn result.location;\r\n"
+    },
+    "runAfter": {
+      "Parse_TranscriptionFiles": [ "Succeeded" ]
+    },
+    "type": "JavaScriptCode"
+  },
+  "Initialize_variable_-_var_admin_emails": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_admin_emails",
+          "type": "array",
+          "value": [ "maciej.borowy@chmurowisko.pl", "daniel.pisarek@chmurowisko.pl" ]
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_trans_status": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_audio_filename": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_audio_filename",
+          "type": "string",
+          "value": "@triggerBody()?['Name']"
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_error_message": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_audio_sas_url": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_audio_sas_url",
+          "type": "string",
+          "value": "https://sapggtelcomappmb.blob.core.windows.net/audio"
+        }
+      ]
+    },
+    "runAfter": {
+      "Delay_execution": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_cognitive_key": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_coginitive_key",
+          "type": "string",
+          "value": "74dc99d44ba8471b890b9230ab64e73f"
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_trans_content": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_error_message": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_error_message",
+          "type": "string"
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_status": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_recipient_config": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_recipient_config",
+          "type": "array",
+          "value": [
+            {
+              "email": "maciej.borowy@chmurowisko.pl",
+              "ivrNumber": "48327162030",
+              "location": "Rybnik",
+              "smsNumber": "48500032008"
+            },
+            {
+              "email": "maciej.borowy+pgg@chmurowisko.pl",
+              "ivrNumber": "48327162030",
+              "location": "Rybnik",
+              "smsNumber": "48500032008"
+            },
+            {
+              "email": "maciej.borowy@chmurowisko.pl",
+              "ivrNumber": "48327170007",
+              "location": "Rybnik",
+              "smsNumber": "48500032008"
+            },
+            {
+              "email": "maciej.borowy+pgg@chmurowisko.pl",
+              "ivrNumber": "48327170007",
+              "location": "Rybnik",
+              "smsNumber": "48500032008"
+            },
+            {
+              "email": "maciej.borowy@chmurowisko.pl",
+              "ivrNumber": "48327170009",
+              "location": "Jastrzębia Góra",
+              "smsNumber": "48500032008"
+            }
+          ]
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_admin_emails": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_status": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_status",
+          "type": "string",
+          "value": "ok"
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_cognitive_key": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_trans_content": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_trans_content",
+          "type": "string"
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_audio_sas_url": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Initialize_variable_-_var_trans_status": {
+    "inputs": {
+      "variables": [
+        {
+          "name": "var_trans_status",
+          "type": "string"
+        }
+      ]
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_audio_filename": [ "Succeeded" ]
+    },
+    "type": "InitializeVariable"
+  },
+  "Parse_Transcription": {
+    "inputs": {
+      "content": "@body('Create_Transcription')",
+      "schema": {
+        "properties": {
+          "createdDateTime": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "lastActionDateTime": {
+            "type": "string"
+          },
+          "links": {
+            "properties": {
+              "files": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "model": {
+            "properties": {
+              "self": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "properties": {
+            "properties": {
+              "channels": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "diarizationEnabled": {
+                "type": "boolean"
+              },
+              "profanityFilterMode": {
+                "type": "string"
+              },
+              "punctuationMode": {
+                "type": "string"
+              },
+              "wordLevelTimestampsEnabled": {
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "self": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "runAfter": {
+      "Create_Transcription": [ "Succeeded" ]
+    },
+    "type": "ParseJson"
+  },
+  "Parse_TranscriptionFiles": {
+    "inputs": {
+      "content": "@body('Get_TranscriptionFiles')",
+      "schema": {
+        "properties": {
+          "values": {
+            "items": {
+              "properties": {
+                "createdDateTime": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "links": {
+                  "properties": {
+                    "contentUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "properties": {
+                  "properties": {
+                    "size": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                },
+                "self": {
+                  "type": "string"
+                }
+              },
+              "required": [ "self", "name", "kind", "properties", "createdDateTime", "links" ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "runAfter": {
+      "Get_TranscriptionFiles": [ "Succeeded" ]
+    },
+    "type": "ParseJson"
+  },
+  "Parse_var_recipient_config": {
+    "inputs": {
+      "content": "@variables('var_recipient_config')",
+      "schema": {
+        "items": {
+          "properties": {
+            "email": {
+              "type": "string"
+            },
+            "ivrNumber": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "smsNumber": {
+              "type": "string"
+            }
+          },
+          "required": [ "ivrNumber", "location", "smsNumber", "email" ],
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "runAfter": {
+      "Initialize_variable_-_var_recipient_config": [ "Succeeded" ]
+    },
+    "type": "ParseJson"
+  },
+  "Send_email_alert_to_admins_if_var_status_is_failed": {
+    "actions": {
+      "Send_an_email_alert_to_admins": {
+        "actions": {},
+        "foreach": "@variables('var_admin_emails')",
+        "runAfter": {},
+        "type": "Foreach"
+      },
+      "Set_run_status_to_failed": {
+        "inputs": {
+          "runError": {
+            "code": "@variables('var_status')",
+            "message": "@variables('var_error_message')"
+          },
+          "runStatus": "Failed"
+        },
+        "runAfter": {
+          "Send_an_email_alert_to_admins": [ "Succeeded" ]
+        },
+        "type": "Terminate"
+      }
+    },
+    "expression": {
+      "and": [
+        {
+          "equals": [ "@variables('var_status')", "fail" ]
+        }
+      ]
+    },
+    "runAfter": {
+      "For_each": [ "Succeeded", "TimedOut", "Skipped", "Failed" ]
+    },
+    "type": "If"
+  },
+  "Set_variable_-_var_audio_sas_url": {
+    "inputs": {
+      "name": "var_audio_sas_url",
+      "value": "@body('Create_SAS_URI_by_path_(V2)_2')?['WebUrl']"
+    },
+    "runAfter": {
+      "Create_SAS_URI_by_path_(V2)": [ "Succeeded" ]
+    },
+    "type": "SetVariable"
+  },
+  "Set_variable_-_var_status_(localization)": {
+    "inputs": {
+      "name": "var_status",
+      "value": "fail"
+    },
+    "runAfter": {
+      "Get_location_by_filename": [ "Failed", "TimedOut" ]
+    },
+    "type": "SetVariable"
+  },
+  "Until": {
+    "actions": {
+      "Delay": {
+        "inputs": {
+          "interval": {
+            "count": 5,
+            "unit": "Second"
+          }
+        },
+        "runAfter": {},
+        "type": "Wait"
+      },
+      "Get_TranscriptionStatus": {
+        "inputs": {
+          "headers": {
+            "Ocp-Apim-Subscription-Key": "@variables('var_coginitive_key')"
+          },
+          "method": "GET",
+          "uri": "@body('Parse_Transcription')?['self']"
+        },
+        "runAfter": {
+          "Delay": [ "Succeeded" ]
+        },
+        "type": "Http"
+      },
+      "Parse_JSON": {
+        "inputs": {
+          "content": "@body('Get_TranscriptionStatus')",
+          "schema": {
+            "properties": {
+              "createdDateTime": {
+                "type": "string"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "lastActionDateTime": {
+                "type": "string"
+              },
+              "links": {
+                "properties": {
+                  "files": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "model": {
+                "properties": {
+                  "self": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "properties": {
+                "properties": {
+                  "channels": {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  "diarizationEnabled": {
+                    "type": "boolean"
+                  },
+                  "profanityFilterMode": {
+                    "type": "string"
+                  },
+                  "punctuationMode": {
+                    "type": "string"
+                  },
+                  "wordLevelTimestampsEnabled": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              },
+              "self": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "runAfter": {
+          "Get_TranscriptionStatus": [ "Succeeded" ]
+        },
+        "type": "ParseJson"
+      },
+      "Set_variable_-_var_trans_status": {
+        "inputs": {
+          "name": "var_trans_status",
+          "value": "@body('Parse_JSON')?['status']"
+        },
+        "runAfter": {
+          "Parse_JSON": [ "Succeeded" ]
+        },
+        "type": "SetVariable"
+      }
+    },
+    "expression": "@equals(variables('var_trans_status'), 'Succeeded')",
+    "limit": {
+      "count": 60,
+      "timeout": "PT1H"
+    },
+    "runAfter": {
+      "Parse_Transcription": [ "Succeeded" ]
+    },
+    "type": "Until"
+  }
+}
