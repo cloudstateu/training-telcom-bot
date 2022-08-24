@@ -1,0 +1,11 @@
+{
+  "name": "pgg-telcom-app-send-sms",
+  "version": "1.0.0",
+  "description": "Azure Function for sending SMS",
+  "scripts": {
+    "start": "func start"
+  },
+  "dependencies": {
+    "axios": "0.27.2"
+  }
+}
