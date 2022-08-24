@@ -30,13 +30,13 @@ TBA
     - Container: z rozwijanego menu wybierz folder `audio`
     - How often do you want to check for items?: `1 minute`
 
-1. Zapisz zmiany klikając `Save` ponad oknem projektanta
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
 
 ### Krok 2: Zmień kod Logic App
 
 1. Wyświetl szczegóły Logic App, przejdź do zakładki `Logic app designer`, kliknij `Code view` ponad oknem projektanta
 1. Zlokalizuj property `actions` i podmień wartość property (obiekt Javascript) na zawartość pliku [`02_initial_code/actions.json`](./02_initial_code/actions.json)
-1. Kliknij `Save`
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
 
 ### Krok 3: Skonfiguruj wartości unikalne dla środowiska
 
@@ -44,6 +44,7 @@ TBA
 1. W kroku _"Initialize variable - var cognitive key"_ zmień wartość na wartość klucza do usługi Speech Service (`cog-speechservice`).
 1. W kroku _"Initialize variable - var admin emails"_ podaj adres e-mail na jaki mają być wysyłane alerty o niepoprawnym działaniu usługi.
 1. W kroku _"Initialize variable - var recipient config"_ podaj konfigurację (w szczególności adres e-mail) na jaki mają być wysyłane powiadomienia o zgłoszeniu.
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
 
 ### Krok 4: Przetesuj rozwiązanie
 
@@ -82,7 +83,7 @@ TBA
         @{variables('var_trans_content')}
         ```
 
-1. Zapisz zmiany klikając "Save"
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
 
 ### Krok 2: Przetestuj wysyłanie wiadomości e-mail z powiadomieniem o zgłoszeniu
 
@@ -127,7 +128,7 @@ TBA
         @{variables('var_trans_content')}
         ```
 
-1. Zapisz zmiany klikając "Save"
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
 
 ### Krok 4: Przetestuj wysyłanie alertu o niepoprawnym działaniu
 
@@ -141,3 +142,64 @@ TBA
     > 
     > Zawartość pliku z transkrypcją:
     > Proszę podać imię i nazwisko osoby dokonującej zgłoszenia. Damian Damian owski. Proszę podać adres, którego zgłoszenie dotyczy. 0 2 0 22 Warszawa do Mińska 2. Proszę podać nr telefonu do kontaktu. 600 000004. Podaj numer telefonu, którego dotyczy zgłoszenie. 302 0000000. Podaj krótki opis uszkodzenia. Zgłoszenie testowe do scenariusza 4 i 5.
+
+## Ćwiczenie 5: Dodaj numer zgłoszenia do tytułu powiadomienia o zgłoszeniu
+
+### Krok 1: Pobierz ostatni numer zgłoszenia z bazy danych
+
+1. Przejdź do _"Logic app designer"_, znajdź krok `Parse var recipient config`, kliknij ikonę `+` na strzałce poniżej kroku i wybierz pozycję _"Add an action"_
+1. W wyszukiwarce akcji wpisz _"Get entity (V2)"_ i wybierz krok _"Get entity (V2) (preview)"_
+1. Skonfiguruj połączenie do bazy danych zgodnie z poniższymi wartościami:
+
+    - Connection name: `azuretable`
+    - Authentication type: Access Key
+    - Storage Account name: `sapggtelcomapp<student_name>` (w miejsce `<student_name>` wstaw swój login np. `st01`)
+    - Shared Storage Key: `<wklej storage key znaleziony w ćwiczeniu 2>`
+
+1. Skonfiguruj zapytanie zwracjące ostatni numer zgłoszenia zgodnie z poniższymi wartościami:
+
+    - Storage account name: `sapggtelcomapp<student_name>` (w miejsce `<student_name>` wstaw swój login np. `st01`)
+    - Table: `config`
+    - Partition Key: `incident_number`
+    - Row Key: `1`
+
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
+
+### Krok 2: Zaktualizuj numer zgłoszenia
+
+1. Poniżej kroku `Get entity (V2)`, kliknij ikonę `+` na strzałce poniżej kroku i wybierz pozycję _"Add an action"_
+1. W wyszukiwarce akcji wpisz _"Replace Entity (V2)"_ i wybierz krok _"Replace Entity (V2) (preview)"_
+1. Skonfiguruj zapytanie aktualizujące numer zgłoszenia zgodnie z poniższymi wartościami:
+
+    - Storage account name: `sapggtelcomapp<student_name>` (w miejsce `<student_name>` wstaw swój login np. `st01`)
+    - Table: `config`
+    - Partition Key: `incident_number`
+    - Row Key: `1`
+    - ETag: `*`
+    - Entity: 
+
+        ```
+        {
+          "value": @{add(int(body('Get_entity_(V2)')?['value']), 1)}
+        }
+        ```
+
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
+
+### Krok 3: Dodaj numer zgłoszenia do powiadomienia e-mail o zgłoszeniu
+
+1. Znajdź krok `For each` > `Send email to recipients` > `Send an email (V2) Office 365 Outlook` i otwórz go
+1. Zaktualizuj tytuł wiadomości zgodnie z poniższą wartością:
+
+    ```
+    Zgłoszenie BOA @{int(body('Get_entity_(V2)')?['value'])} @{body('Get_location_by_filename')}
+    ```
+
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
+
+### Krok 4: Przetestuj wysyłanie wiadomości e-mail z powiadomieniem o zgłoszeniu
+
+1. Przejdź do sekcji _"Overview"_ usługi Logic App
+1. W tabeli _"Runs history"_ wybierz wywołanie usługi zakończone powodzeniem
+1. Wykonaj ponowne wywołanie klikając _"Resubmit"_
+1. Odczekaj około minuty i sprawdź czy wiadomość e-mail została wysłana. Sprawdź czy tytuł wiadomości zawiera numer zgłoszenia.
