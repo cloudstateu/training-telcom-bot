@@ -3,3 +3,5 @@
 terraform.tfstate
 terraform.tfstate.backup
 .DS_store
+node_modules/
+cert.pem

@@ -161,5 +161,8 @@ resource "azurerm_linux_function_app" "example" {
   site_config {
     application_insights_key               = azurerm_application_insights.main.instrumentation_key
     application_insights_connection_string = azurerm_application_insights.main.connection_string
+    application_stack {
+      node_version = "16"
+    }
   }
 }

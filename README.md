@@ -203,3 +203,22 @@ TBA
 1. W tabeli _"Runs history"_ wybierz wywołanie usługi zakończone powodzeniem
 1. Wykonaj ponowne wywołanie klikając _"Resubmit"_
 1. Odczekaj około minuty i sprawdź czy wiadomość e-mail została wysłana. Sprawdź czy tytuł wiadomości zawiera numer zgłoszenia.
+
+## Ćwiczenie 5: Wysłanie SMS z powiadomieniem o zgłoszeniu
+
+### Krok 1: 
+
+1. npm i
+1. Pobieram cert.pem (w katalogu `/functions/sms`)
+
+    ```
+    curl <url> --output cert.pem
+    ```
+
+1. ./deploy.sh
+1. Wchodzę w `func-telcomapp` > `Functions` i sprawdzam czy jest funkcja sms
+1. Testuje funkcje
+
+    ```
+    curl -X POST https://func-telcomapp.azurewebsites.net/api/sms?code=cxGnz5bqfWE5dwGgFoMY-LgQyHNVYzsSUSir-BLkXF5gAzFuG0HptA== -H 'Content-Type: application-json' -d '{"recipient": "500032008", "content": "Witam", "msisdn": "500032008"}'
+    ```

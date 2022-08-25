@@ -1,0 +1,1 @@
+curl -X POST "https://func-telcomapp.azurewebsites.net/api/sms?code=iauXdwT_RZFjUY4Xw54vN7geWLgcbAx7cEs2IorQE0eMAzFuXI1d2Q==" -H 'Content-Type: application/json' -d '{"recipient": "500032008", "content": "Witam xoxo", "msisdn": "500032008"}'
