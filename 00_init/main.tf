@@ -150,7 +150,7 @@ resource "azurerm_application_insights" "main" {
 }
 
 resource "azurerm_linux_function_app" "example" {
-  name                = "func-telcomapp"
+  name                = "func-telcomapp-${var.student_name}"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
 

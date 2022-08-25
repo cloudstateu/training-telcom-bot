@@ -206,19 +206,48 @@ TBA
 
 ## Ćwiczenie 5: Wysłanie SMS z powiadomieniem o zgłoszeniu
 
-### Krok 1: 
+### Krok 1: Wdróż kod Azure Function komunikujący się z bramką SMS
 
-1. npm i
-1. Pobieram cert.pem (w katalogu `/functions/sms`)
-
-    ```
-    curl <url> --output cert.pem
-    ```
-
-1. ./deploy.sh
-1. Wchodzę w `func-telcomapp` > `Functions` i sprawdzam czy jest funkcja sms
-1. Testuje funkcje
+1. Przejdź do katalogu `05_send_sms/functions` i wykonaj komendę `npm i`
+1. Pobierz certyfikat uwierzytelniający komunikację z bramką SMS. Wykonaj poniższą komendę w  katalogu `/functions/sms`:
 
     ```
-    curl -X POST https://func-telcomapp.azurewebsites.net/api/sms?code=cxGnz5bqfWE5dwGgFoMY-LgQyHNVYzsSUSir-BLkXF5gAzFuG0HptA== -H 'Content-Type: application-json' -d '{"recipient": "500032008", "content": "Witam", "msisdn": "500032008"}'
+    curl <url_do_pobrania_certyfikatu> --output cert.pem
     ```
+
+1. Wykonaj `./deploy.sh` (w katalogu `/functions`)
+1. Sprawdź czy w Azure Function App z nazwą znajduje się funkcja z nazwą `sms`. Otwórz funkcje i pobierz URL do niej (klikając _"Get Function Url"_)
+1. Przetestuj funkcje (uzupełnij zapytanie swoimi danymi)
+
+    ```
+    curl -X POST <url_do_funkcji_sms> -H 'Content-Type: application-json' -d '{"recipient": "<twoj_numer_telefonu>", "content": "Witam", "msisdn": "500032008"}'
+    ```
+
+### Krok 2: Dodaj krok wysyłający SMS z powiadomieniem o zgłoszeniu
+
+1. W sekcji _"Logic app designer"_ znajdź krok `For each` i otwórz go
+1. Znajdź krok _"Send SMS to recipients"_ i otwórz go
+1. Kliknij przycisk _"Add an action"_
+1. W wyszukiwarce (_"Search connectors and actions"_) wpisz: "Azure Functions". Wyszukaj i wybierz pozycję: "Choose an Azure Function". Na kolejnym ekranie wybierz nazwę swojej Azure Function App.
+1. Na kolejnym ekranie wybierz nazwę funkcji - `sms`
+1. Skonfiguruj zapytanie wysyłane z Logic App do Azure Function zgodnie z poniższymi wartościami:
+
+    - Request Body:
+
+        ```
+        {
+            "content": "Zgłoszenie BOA @{int(body('Get_entity_(V2)')?['value'])} @{body('Get_location_by_filename')} Odbierz e-maila",
+            "recipient": "@{items('Send_SMS_to_recipients')}",
+            "msisdn": "500032008"
+        }
+        ```
+    
+
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
+
+### Krok 3: Przetestuj wysyłanie wiadomości SMS z powiadomieniem o zgłoszeniu
+
+1. Przejdź do sekcji _"Overview"_ usługi Logic App
+1. W tabeli _"Runs history"_ wybierz wywołanie usługi zakończone powodzeniem
+1. Wykonaj ponowne wywołanie klikając _"Resubmit"_
+1. Odczekaj około minuty i sprawdź czy wiadomość SMS została wysłana na numer telefonu odbiorcy.
