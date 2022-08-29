@@ -251,3 +251,44 @@ TBA
 1. W tabeli _"Runs history"_ wybierz wywołanie usługi zakończone powodzeniem
 1. Wykonaj ponowne wywołanie klikając _"Resubmit"_
 1. Odczekaj około minuty i sprawdź czy wiadomość SMS została wysłana na numer telefonu odbiorcy.
+
+
+## Ćwiczenie 6: Dodaj raporty do aplikacji
+
+### Krok 1: Skonfiguruj zbieranie logów z aplikacji
+
+1. Po kroku "For each" (a przed krokiem "Send email alert to admins if var starus is failed") dodaj nową akcję. Wyszukaj usługę "Azure Log Analytics Data Collector" i wybierz akcję "Send data".
+1. W drugiej zakładce przeglądarki otwórz stronę usługi Log Analytics workspace. Otwórz stronę _Settings_ > _Agents management_ > _Linux servers_ (zakładka) > _Log Analytics agent instructions_ (sekcja).
+1. Skonfiguruj połączenie z Log Analytics zgodnie z poniższymi wartościami:
+
+    - Connection name: `logs`
+    - Workspace ID: `<skopiowany z poprzedniego kroku>`
+    - Workspace Key:  `<skopiowany z poprzedniego kroku>`
+
+1. Skonfiguruj format wpisu z logiem:
+
+    - JSON Request body:
+
+        ```
+        { status: "@{variables('var_status')}", data: { content: "@{variables('var_trans_content')}", filename: "@{variables('var_audio_filename')}", localization: "@{body('Get_location_by_filename')}", error: "@{variables('var_error_message')}", identifier: "@{workflow()['run']['name']}" }}
+        ```
+
+    - Custom Log Name: `process_summary`
+
+1. Zapisz zmiany w Logic App klikając _"Save"_ ponad oknem projektanta
+
+### Krok 2: Przetestuj działanie Logic App po zmianach
+
+1. Przejdź do sekcji _"Overview"_ usługi Logic App
+1. W tabeli _"Runs history"_ wybierz wywołanie usługi zakończone powodzeniem
+1. Wykonaj ponowne wywołanie klikając _"Resubmit"_
+1. Odczekaj około minuty i sprawdź czy wywołanie zakonczyło się sukcesem
+
+### Krok 3: Dodaj widok raportu
+
+1. Przejdź do usługi Log Analytics workspace
+1. Otwórz stronę "Workbooks" (pod sekcją "General" w menu)
+1. Kliknij "+ New"
+1. Przejdź do widoku kodu dla tworzonego Workbook
+1. Podmień zawartość tablicy `items` zawartoscia z pliku
+1. Zapisz zmiany i odczekaj kilka minut na wygenerowanie pierwszego raportu

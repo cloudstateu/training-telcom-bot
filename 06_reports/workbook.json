@@ -1,0 +1,199 @@
+[
+  {
+    "type": 9,
+    "content": {
+      "version": "KqlParameterItem/1.0",
+      "parameters": [
+        {
+          "id": "f5d6b691-9842-413d-abd6-e1dc477d273f",
+          "version": "KqlParameterItem/1.0",
+          "name": "time_range",
+          "label": "Time Range",
+          "type": 4,
+          "value": {
+            "durationMs": 2592000000
+          },
+          "typeSettings": {
+            "selectableValues": [
+              {
+                "durationMs": 3600000
+              },
+              {
+                "durationMs": 86400000
+              },
+              {
+                "durationMs": 604800000
+              },
+              {
+                "durationMs": 2592000000
+              }
+            ]
+          },
+          "timeContext": {
+            "durationMs": 86400000
+          }
+        }
+      ],
+      "style": "pills",
+      "queryType": 0,
+      "resourceType": "microsoft.operationalinsights/workspaces"
+    },
+    "name": "parameters - 2"
+  },
+  {
+    "type": 10,
+    "content": {
+      "chartId": "27d8bc34-7232-498f-8167-a88d601ea222",
+      "version": "MetricsItem/2.0",
+      "size": 0,
+      "chartType": 1,
+      "resourceType": "microsoft.logic/workflows",
+      "metricScope": 0,
+      "resourceIds": [
+        "/subscriptions/b1685d59-23de-46b6-aacf-9f07b98d19ef/resourceGroups/RG_Daniel_Pisarek/providers/Microsoft.Logic/workflows/audioLApp"
+      ],
+      "timeContextFromParameter": "time_range",
+      "timeContext": {
+        "durationMs": 0
+      },
+      "metrics": [
+        {
+          "namespace": "microsoft.logic/workflows",
+          "metric": "microsoft.logic/workflows--RunsSucceeded",
+          "aggregation": 7,
+          "splitBy": null
+        },
+        {
+          "namespace": "microsoft.logic/workflows",
+          "metric": "microsoft.logic/workflows--RunsFailed",
+          "aggregation": 7
+        }
+      ],
+      "gridFormatType": 1,
+      "tileSettings": {
+        "showBorder": false,
+        "titleContent": {
+          "columnMatch": "Name",
+          "formatter": 13
+        },
+        "leftContent": {
+          "columnMatch": "Value",
+          "formatter": 12,
+          "formatOptions": {
+            "palette": "auto"
+          },
+          "numberFormat": {
+            "unit": 17,
+            "options": {
+              "maximumSignificantDigits": 3,
+              "maximumFractionDigits": 2
+            }
+          }
+        }
+      },
+      "mapSettings": {
+        "locInfo": "AzureResource",
+        "sizeSettings": "Value",
+        "sizeAggregation": "Sum",
+        "legendMetric": "Value",
+        "legendAggregation": "Sum",
+        "itemColorSettings": {
+          "type": "heatmap",
+          "colorAggregation": "Sum",
+          "nodeColorField": "Value",
+          "heatmapPalette": "greenRed"
+        },
+        "locInfoColumn": "Name"
+      },
+      "graphSettings": {
+        "type": 0,
+        "topContent": {
+          "columnMatch": "Subscription",
+          "formatter": 1
+        },
+        "centerContent": {
+          "columnMatch": "Value",
+          "formatter": 1,
+          "numberFormat": {
+            "unit": 17,
+            "options": {
+              "maximumSignificantDigits": 3,
+              "maximumFractionDigits": 2
+            }
+          }
+        }
+      },
+      "gridSettings": {
+        "formatters": [
+          {
+            "columnMatch": "Subscription",
+            "formatter": 5
+          },
+          {
+            "columnMatch": "Name",
+            "formatter": 13,
+            "formatOptions": {
+              "linkTarget": "Resource"
+            }
+          },
+          {
+            "columnMatch": "microsoft.logic/workflows--RunsCompleted Timeline",
+            "formatter": 5
+          },
+          {
+            "columnMatch": "microsoft.logic/workflows--RunsCompleted",
+            "formatter": 1,
+            "numberFormat": {
+              "unit": 0,
+              "options": null
+            }
+          },
+          {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          {
+            "columnMatch": "Aggregation",
+            "formatter": 5
+          },
+          {
+            "columnMatch": "Value",
+            "formatter": 1
+          },
+          {
+            "columnMatch": "Timeline",
+            "formatter": 9
+          }
+        ],
+        "rowLimit": 10000
+      }
+    },
+    "name": "metric - 4"
+  },
+  {
+    "type": 3,
+    "content": {
+      "version": "KqlItem/1.0",
+      "query": "process_summary_CL\n| summarize Count=count() by data_localization_s\n| render barchart \n\n",
+      "size": 0,
+      "title": "Incidents per localization (total)",
+      "timeContextFromParameter": "time_range",
+      "queryType": 0,
+      "resourceType": "microsoft.operationalinsights/workspaces"
+    },
+    "name": "query - 2"
+  },
+  {
+    "type": 3,
+    "content": {
+      "version": "KqlItem/1.0",
+      "query": "process_summary_CL \n| where status_s != 'ok'\n| order by TimeGenerated desc\n| project TimeGenerated, RunStatus=status_s, RunIdentifier=data_identifier_s, Error=data_error_s\n",
+      "size": 0,
+      "title": "Latest errors",
+      "timeContextFromParameter": "time_range",
+      "queryType": 0,
+      "resourceType": "microsoft.operationalinsights/workspaces"
+    },
+    "name": "query - 3"
+  }
+]
